@@ -6,7 +6,7 @@ from pathlib import Path
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse
+from starlette.responses import FileResponse, JSONResponse
 
 from app.api.routes import router
 from app.core.config import get_settings
@@ -14,9 +14,18 @@ from app.core.scheduler import start_scheduler, stop_scheduler
 from app.db import repository
 from app.pipeline.engine import build_daily_snapshot, run_pipeline
 
-BASE_DIR = Path(__file__).resolve().parents[2]
-MIGRATION_SQL = BASE_DIR / "migrations" / "001_init.sql"
-FRONTEND_DIR = BASE_DIR / "frontend" / "public"
+BACKEND_DIR = Path(__file__).resolve().parents[1]
+MIGRATION_CANDIDATES = [
+    BACKEND_DIR / "migrations" / "001_init.sql",  # local/render
+    BACKEND_DIR.parent / "migrations" / "001_init.sql",  # docker
+]
+MIGRATION_SQL = next((p for p in MIGRATION_CANDIDATES if p.exists()), MIGRATION_CANDIDATES[0])
+
+FRONTEND_CANDIDATES = [
+    BACKEND_DIR.parent / "frontend" / "public",  # local/render
+    BACKEND_DIR / "frontend" / "public",  # optional fallback
+]
+FRONTEND_DIR = next((p for p in FRONTEND_CANDIDATES if p.exists()), FRONTEND_CANDIDATES[0])
 
 
 @asynccontextmanager
@@ -43,40 +52,55 @@ app.add_middleware(
 )
 
 app.include_router(router, prefix="/api")
-app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIR)), name="assets")
+if FRONTEND_DIR.exists():
+    app.mount("/assets", StaticFiles(directory=str(FRONTEND_DIR)), name="assets")
 
 
 @app.get("/")
 def page_home() -> FileResponse:
+    if not FRONTEND_DIR.exists():
+        return JSONResponse({"message": "frontend not found on this runtime", "api": "/api/health"})
     return FileResponse(str(FRONTEND_DIR / "index.html"))
 
 
 @app.get("/event")
 def page_event() -> FileResponse:
+    if not FRONTEND_DIR.exists():
+        return JSONResponse({"message": "frontend not found on this runtime", "api": "/api/health"})
     return FileResponse(str(FRONTEND_DIR / "event.html"))
 
 
 @app.get("/sources")
 def page_sources() -> FileResponse:
+    if not FRONTEND_DIR.exists():
+        return JSONResponse({"message": "frontend not found on this runtime", "api": "/api/health"})
     return FileResponse(str(FRONTEND_DIR / "sources.html"))
 
 
 @app.get("/platform")
 def page_platform_query() -> FileResponse:
+    if not FRONTEND_DIR.exists():
+        return JSONResponse({"message": "frontend not found on this runtime", "api": "/api/health"})
     return FileResponse(str(FRONTEND_DIR / "platform.html"))
 
 
 @app.get("/platform/{source_id}")
 def page_platform(source_id: str) -> FileResponse:
     _ = source_id
+    if not FRONTEND_DIR.exists():
+        return JSONResponse({"message": "frontend not found on this runtime", "api": "/api/health"})
     return FileResponse(str(FRONTEND_DIR / "platform.html"))
 
 
 @app.get("/styles.css")
 def page_styles() -> FileResponse:
+    if not FRONTEND_DIR.exists():
+        return JSONResponse({"message": "frontend not found on this runtime", "api": "/api/health"})
     return FileResponse(str(FRONTEND_DIR / "styles.css"))
 
 
 @app.get("/app.js")
 def page_script() -> FileResponse:
+    if not FRONTEND_DIR.exists():
+        return JSONResponse({"message": "frontend not found on this runtime", "api": "/api/health"})
     return FileResponse(str(FRONTEND_DIR / "app.js"))

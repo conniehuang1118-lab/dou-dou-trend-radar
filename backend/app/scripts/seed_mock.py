@@ -7,8 +7,12 @@ from app.pipeline.engine import build_daily_snapshot, run_pipeline
 
 
 def main() -> None:
-    base_dir = Path(__file__).resolve().parents[3]
-    migration_sql = base_dir / "migrations" / "001_init.sql"
+    backend_dir = Path(__file__).resolve().parents[2]
+    candidates = [
+        backend_dir / "migrations" / "001_init.sql",  # local/render
+        backend_dir.parent / "migrations" / "001_init.sql",  # docker fallback
+    ]
+    migration_sql = next((p for p in candidates if p.exists()), candidates[0])
     repository.run_migrations(str(migration_sql))
 
     result = run_pipeline()

@@ -26,6 +26,9 @@ class Settings:
     breaking_min_source_count: int = int(os.getenv("BREAKING_MIN_SOURCE_COUNT", "3"))
     breaking_hours: int = int(os.getenv("BREAKING_HOURS", "6"))
     enable_internal_scheduler: bool = _as_bool(os.getenv("ENABLE_INTERNAL_SCHEDULER"), True)
+    share_auth_enabled: bool = _as_bool(os.getenv("SHARE_AUTH_ENABLED"), False)
+    share_auth_username: str = os.getenv("SHARE_AUTH_USERNAME", "share")
+    share_auth_password: str = os.getenv("SHARE_AUTH_PASSWORD", "")
 
     zhihu_hot_rss: str = os.getenv("ZHIHU_HOT_RSS", "https://rsshub.app/zhihu/hotlist")
     x_trend_rss: str = os.getenv("X_TREND_RSS", "https://rsshub.app/x/trending")

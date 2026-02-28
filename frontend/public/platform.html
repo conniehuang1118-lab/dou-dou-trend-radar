@@ -58,21 +58,26 @@
 
     function renderItems(items) {
       if (!items || !items.length) return '<p class="small">暂无内容</p>';
-      return items.map((it, idx) => `
-        <article class="item-card">
-          <a class="item-thumb" href="${it.url}" target="_blank" rel="noreferrer">
-            <img src="${itemImg(it.title, idx)}" alt="item image" loading="lazy" />
-          </a>
-          <div>
-            <h5><a href="${it.url}" target="_blank" rel="noreferrer">${it.title}</a></h5>
-            <p>${it.summary || ''}</p>
-            <div class="meta">
-              <span class="tag">${(it.mode || '').toUpperCase()}</span>
-              <span>${new Date(it.publish_time).toLocaleString()}</span>
+      return items.map((it, idx) => {
+        const title = sanitizeText(it.title, 90);
+        const summary = sanitizeText(it.summary || '', 160);
+        const url = normalizeExternalUrl(it.url, title);
+        return `
+          <article class="item-card">
+            <a class="item-thumb" href="${url}" target="_blank" rel="noreferrer">
+              <img src="${itemImg(it.title, idx)}" alt="item image" loading="lazy" />
+            </a>
+            <div>
+              <h5><a href="${url}" target="_blank" rel="noreferrer">${title}</a></h5>
+              <p>${summary}</p>
+              <div class="meta">
+                <span class="tag">${(it.mode || '').toUpperCase()}</span>
+                <span>${new Date(it.publish_time).toLocaleString()}</span>
+              </div>
             </div>
-          </div>
-        </article>
-      `).join('');
+          </article>
+        `;
+      }).join('');
     }
 
     async function loadPlatform() {

@@ -5,6 +5,7 @@ import math
 from collections import Counter, defaultdict
 from dataclasses import dataclass
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote_plus
 from zoneinfo import ZoneInfo
 
 from app.core.config import get_settings
@@ -215,6 +216,9 @@ def _fallback_for_source(source_id: str, source_name: str) -> list[RawSignal]:
 
     rows: list[RawSignal] = []
     idx = 1
+    def search_url(title: str) -> str:
+        return f"https://www.baidu.com/s?wd={quote_plus(title)}"
+
     for t in shared:
         publish = now - timedelta(minutes=idx * 6)
         rows.append(
@@ -223,7 +227,7 @@ def _fallback_for_source(source_id: str, source_name: str) -> list[RawSignal]:
                 source_id=source_id,
                 title=t,
                 content=f"{source_name} 出现该主题高热信号。",
-                url=f"https://mock.local/{source_id}/shared/{idx}",
+                url=search_url(t),
                 author="mock",
                 publish_time=publish,
                 metrics={"likes": 900 + idx * 50, "comments": 300 + idx * 30, "reposts": 240 + idx * 20, "views": 60000 + idx * 4000},
@@ -241,7 +245,7 @@ def _fallback_for_source(source_id: str, source_name: str) -> list[RawSignal]:
                 source_id=source_id,
                 title=f"{t}（{source_name}）",
                 content=f"{source_name} 关于 {t} 的热点内容。",
-                url=f"https://mock.local/{source_id}/u/{idx}",
+                url=search_url(t),
                 author="mock",
                 publish_time=publish,
                 metrics={"likes": 120 + idx * 8, "comments": 45 + idx * 3, "reposts": 30 + idx * 2, "views": 9000 + idx * 330},

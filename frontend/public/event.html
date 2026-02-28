@@ -38,8 +38,8 @@
 
         document.getElementById('eventRoot').innerHTML = `
           <section class="panel">
-            <h2 style="margin:0 0 8px;font-size:48px;line-height:1.1;">${e.title}</h2>
-            <p class="small">${e.summary || ''}</p>
+            <h2 style="margin:0 0 8px;font-size:48px;line-height:1.1;">${sanitizeText(e.title, 120)}</h2>
+            <p class="small">${sanitizeText(e.summary || '', 220)}</p>
             <div class="meta">
               <span>分类 ${e.category}</span>
               <span>热度 ${fmtScore(e.heat_score)}</span>
@@ -56,7 +56,7 @@
                 <summary><b>${sid}</b></summary>
                 ${items.map((s) => `
                   <div class="event-item">
-                    <a href="${s.url}" target="_blank" rel="noreferrer">${s.title}</a>
+                    <a href="${normalizeExternalUrl(s.url, s.title)}" target="_blank" rel="noreferrer">${sanitizeText(s.title, 100)}</a>
                     <div class="small">${s.source_name} · ${new Date(s.publish_time).toLocaleString()}</div>
                   </div>
                 `).join('')}

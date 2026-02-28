@@ -60,8 +60,25 @@ python -m app.scripts.seed_mock
    - `APP_ENV=prod`
    - `APP_TIMEZONE=Asia/Shanghai`
    - `ENABLE_INTERNAL_SCHEDULER=false`（线上用 Cron，避免重复调度）
+   - `SHARE_AUTH_ENABLED=true`（开启基础访问密码）
+   - `SHARE_AUTH_USERNAME=<你的用户名>`
+   - `SHARE_AUTH_PASSWORD=<你的密码>`
    - 可选：`ZHIHU_HOT_RSS`、`X_TREND_RSS`、`X_BEARER_TOKEN`
 5. 等待部署完成后，访问 Web URL（如 `https://xxx.onrender.com`）。
+
+### 自定义域名（Render）
+1. 打开 Render 服务 `trend-radar-web` -> `Settings` -> `Custom Domains`。
+2. 点击 `Add Custom Domain`，输入你的域名（例如 `radar.yourdomain.com`）。
+3. 按 Render 提示到域名服务商添加 `CNAME` 记录，指向 Render 给出的目标地址。
+4. 等 DNS 生效后，Render 会自动签发 HTTPS 证书。
+
+### 基础访问密码保护（已内置）
+- 默认关闭，通过环境变量开启：
+  - `SHARE_AUTH_ENABLED=true`
+  - `SHARE_AUTH_USERNAME=share`
+  - `SHARE_AUTH_PASSWORD=<strong-password>`
+- 开启后，除 `/api/health` 外，访问页面/API 都会要求 Basic Auth。
+- Render 健康检查不受影响（仍访问 `/api/health`）。
 
 ### 上线后 5 分钟验收
 1. 打开 `https://<your-domain>/api/health`，应返回 `status=ok`
@@ -237,3 +254,6 @@ trend-radar-mvp/
 - `BREAKING_MIN_SOURCE_COUNT`（默认 3）
 - `APP_TIMEZONE`（默认 `Asia/Shanghai`）
 - `ENABLE_INTERNAL_SCHEDULER`（本地可 `true`；线上配合 Render Cron 建议 `false`）
+- `SHARE_AUTH_ENABLED`（`true|false`，默认 `false`）
+- `SHARE_AUTH_USERNAME`（Basic Auth 用户名）
+- `SHARE_AUTH_PASSWORD`（Basic Auth 密码）

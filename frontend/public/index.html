@@ -157,7 +157,7 @@
           <h4 class="compact-event-title">
             <a class="rank-row" href="./event.html?id=${encodeURIComponent(e.id)}">
               <span class="rank-num">${idx + 1}</span>
-              <span class="rank-title">${e.title}</span>
+              <span class="rank-title">${sanitizeText(e.title, 60)}</span>
             </a>
           </h4>
           <div class="small">${e.category} · 热度 ${fmtScore(e.heat_score)} · 增速 ${fmtGrowth(e.growth_rate)}</div>
@@ -192,14 +192,17 @@
     }
 
     function renderItemCard(it, idx) {
+      const title = sanitizeText(it.title, 90);
+      const summary = sanitizeText(it.summary || "", 160);
+      const url = normalizeExternalUrl(it.url, title);
       return `
         <article class="item-card">
-          <a class="item-thumb" href="${it.url}" target="_blank" rel="noreferrer">
+          <a class="item-thumb" href="${url}" target="_blank" rel="noreferrer">
             <img src="${itemImg(it, idx)}" alt="item image" loading="lazy" />
           </a>
           <div>
-            <h5><a href="${it.url}" target="_blank" rel="noreferrer">${it.title}</a></h5>
-            <p>${it.summary || ""}</p>
+            <h5><a href="${url}" target="_blank" rel="noreferrer">${title}</a></h5>
+            <p>${summary}</p>
             <div class="meta">
               <span class="tag">${(it.mode || '').toUpperCase()}</span>
               <span>${new Date(it.publish_time).toLocaleString()}</span>

@@ -1,12 +1,14 @@
 from __future__ import annotations
 
+import base64
+import hmac
 from contextlib import asynccontextmanager
 from pathlib import Path
 
-from fastapi import FastAPI
+from fastapi import FastAPI, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
-from starlette.responses import FileResponse, JSONResponse
+from starlette.responses import FileResponse, JSONResponse, Response
 
 from app.api.routes import router
 from app.core.config import get_settings
@@ -50,6 +52,44 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+def _unauthorized() -> Response:
+    return Response(
+        content="Unauthorized",
+        status_code=401,
+        headers={"WWW-Authenticate": 'Basic realm="Trend Radar"'},
+    )
+
+
+@app.middleware("http")
+async def share_basic_auth(request: Request, call_next):
+    settings = get_settings()
+    if not settings.share_auth_enabled:
+        return await call_next(request)
+
+    path = request.url.path
+    if path == "/api/health":
+        return await call_next(request)
+
+    auth = request.headers.get("authorization", "")
+    if not auth.startswith("Basic "):
+        return _unauthorized()
+
+    try:
+        encoded = auth.split(" ", 1)[1].strip()
+        decoded = base64.b64decode(encoded).decode("utf-8")
+        username, password = decoded.split(":", 1)
+    except Exception:
+        return _unauthorized()
+
+    user_ok = hmac.compare_digest(username, settings.share_auth_username)
+    pass_ok = hmac.compare_digest(password, settings.share_auth_password)
+    if not (user_ok and pass_ok):
+        return _unauthorized()
+
+    return await call_next(request)
+
 
 app.include_router(router, prefix="/api")
 if FRONTEND_DIR.exists():

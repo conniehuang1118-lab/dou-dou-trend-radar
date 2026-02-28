@@ -1,9 +1,14 @@
 from __future__ import annotations
 
 from datetime import datetime, timedelta, timezone
+from urllib.parse import quote_plus
 
 from app.core.types import RawSignal
 from app.pipeline.providers.base import Provider
+
+
+def _search_url(title: str) -> str:
+    return f"https://www.baidu.com/s?wd={quote_plus(title)}"
 
 
 class JikeMockProvider(Provider):
@@ -24,7 +29,7 @@ class JikeMockProvider(Provider):
         items: list[RawSignal] = []
         for idx, (title, content, mins, views) in enumerate(topics, start=1):
             publish = now - timedelta(minutes=mins)
-            url = f"https://mock.jike.com/post/{idx}"
+            url = _search_url(title)
             items.append(
                 RawSignal(
                     id=self.make_signal_id(title, url, publish),
@@ -60,7 +65,7 @@ class BilibiliMockProvider(Provider):
         items: list[RawSignal] = []
         for idx, (title, content, mins, views) in enumerate(videos, start=1):
             publish = now - timedelta(minutes=mins)
-            url = f"https://mock.bilibili.com/video/BV1{idx:02d}"
+            url = _search_url(title)
             items.append(
                 RawSignal(
                     id=self.make_signal_id(title, url, publish),
@@ -103,7 +108,7 @@ class MockBurstProvider(Provider):
         items: list[RawSignal] = []
         for idx, (title, content, mins, views) in enumerate(burst_topics, start=1):
             publish = now - timedelta(minutes=mins)
-            url = f"https://mock.seed/burst/{idx}"
+            url = _search_url(title)
             items.append(
                 RawSignal(
                     id=self.make_signal_id(title, url, publish),
@@ -123,7 +128,7 @@ class MockBurstProvider(Provider):
             mins = 20 + (idx % 120)
             views = 1200 + (idx % 9) * 380
             publish = now - timedelta(minutes=mins)
-            url = f"https://mock.seed/topic/{idx}"
+            url = _search_url(title)
             content = f"{title} 相关讨论持续上升，多个平台出现信号。"
             items.append(
                 RawSignal(

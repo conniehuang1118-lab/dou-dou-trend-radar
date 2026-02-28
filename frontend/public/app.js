@@ -31,6 +31,32 @@ function fmtPct(v) { return `${(v * 100).toFixed(1)}%`; }
 function fmtScore(v) { return Number(v || 0).toFixed(1); }
 function fmtGrowth(v) { return `${(Number(v || 0) * 100).toFixed(1)}%`; }
 
+function sanitizeText(value, maxLen = 0) {
+  const raw = String(value ?? "");
+  const noTags = raw.replace(/<[^>]*>/g, " ").replace(/\s+/g, " ").trim();
+  const decoded = noTags
+    .replace(/&nbsp;/gi, " ")
+    .replace(/&amp;/gi, "&")
+    .replace(/&lt;/gi, "<")
+    .replace(/&gt;/gi, ">")
+    .replace(/&quot;/gi, '"')
+    .replace(/&#39;/gi, "'");
+  if (maxLen > 0 && decoded.length > maxLen) return `${decoded.slice(0, maxLen)}...`;
+  return decoded;
+}
+
+function normalizeExternalUrl(url, title = "") {
+  const raw = String(url || "").trim();
+  if (!raw || /:\/\/mock[.\-]/i.test(raw)) {
+    const q = encodeURIComponent(sanitizeText(title) || "热点资讯");
+    return `https://www.baidu.com/s?wd=${q}`;
+  }
+  return raw;
+}
+
+window.sanitizeText = sanitizeText;
+window.normalizeExternalUrl = normalizeExternalUrl;
+
 function relTime(iso) {
   const d = new Date(iso).getTime();
   const now = Date.now();

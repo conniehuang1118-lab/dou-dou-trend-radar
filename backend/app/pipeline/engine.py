@@ -330,21 +330,33 @@ def run_pipeline() -> dict:
         if len(events) < 20:
             extra = _fallback_for_source("mock_burst", "种子源")
             ext_norm = [_normalize_and_enrich(x) for x in extra]
+            # Make sure fallback signals are persisted before they can be referenced by event mappings.
+            ext_existing_fp = repository.get_existing_fingerprints(72)
+            ext_existing_wfp = repository.get_existing_weak_fingerprints(72)
+            ext_batch_fp: set[str] = set()
+            ext_batch_wfp: set[tuple[str, str]] = set()
+            ext_deduped: list[RawSignal] = []
+            ext_fps: list[tuple[str, str]] = []
             for sig in ext_norm:
-                recent.append(
-                    {
-                        "id": sig.id,
-                        "source_id": sig.source_id,
-                        "title": sig.title,
-                        "content": sig.content,
-                        "url": sig.url,
-                        "author": sig.author,
-                        "publish_time": sig.publish_time,
-                        "metrics": sig.metrics,
-                        "extracted_keywords": sig.extracted_keywords,
-                        "source_weight": 5,
-                    }
-                )
+                fp = strong_fingerprint(sig.title, sig.url)
+                wfp = weak_fingerprint(sig.title)
+                wfp_key = (sig.source_id, wfp)
+                if fp in ext_existing_fp or fp in ext_batch_fp:
+                    continue
+                if wfp_key in ext_existing_wfp or wfp_key in ext_batch_wfp:
+                    continue
+                ext_batch_fp.add(fp)
+                ext_batch_wfp.add(wfp_key)
+                ext_deduped.append(sig)
+                ext_fps.append((fp, wfp))
+
+            if ext_deduped:
+                repository.insert_raw_signals(ext_deduped, ext_fps)
+
+            recent = repository.list_recent_signals(48)
+            for r in recent:
+                if not r.get("extracted_keywords"):
+                    r["extracted_keywords"] = extract_keywords(f"{r['title']} {r.get('content') or ''}", top_k=10)
             clusters = _cluster_signals(recent, threshold=0.35)
             events = _build_events(clusters, prev_map)
 

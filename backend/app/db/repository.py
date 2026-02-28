@@ -276,8 +276,12 @@ def save_events(events: list[EventModel], observed_at: datetime) -> None:
 
                 for sid in event.signal_ids:
                     cur.execute(
-                        "INSERT INTO event_signal_mapping(event_id, signal_id) VALUES (%s, %s)",
-                        (event.id, sid),
+                        """
+                        INSERT INTO event_signal_mapping(event_id, signal_id)
+                        SELECT %s, %s
+                        WHERE EXISTS (SELECT 1 FROM raw_signals WHERE id = %s)
+                        """,
+                        (event.id, sid, sid),
                     )
 
                 cur.execute(

@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>平台频道 - 趋势雷达</title>
+  <link rel="stylesheet" href="/styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="top-note">
+      <span id="topHint">平台频道</span>
+      <span><a href="/">返回首页</a></span>
+    </header>
+
+    <nav class="main-nav">
+      <div class="links">
+        <a href="/">首页</a>
+        <a href="/sources">平台管理</a>
+      </div>
+      <h1 class="logo" id="pageTitle">Platform Feed</h1>
+      <div class="actions">
+        <button id="refreshBtn">立即刷新</button>
+        <span id="status" class="status">未刷新</span>
+      </div>
+    </nav>
+
+    <section class="panel" style="margin-top:16px;">
+      <div class="section-header-row">
+        <h3 class="section-title" style="margin:0;">频道内容</h3>
+        <span class="tag" id="modeTag">-</span>
+      </div>
+      <div id="platformRoot"></div>
+    </section>
+  </div>
+
+  <script src="/app.js"></script>
+  <script>
+    const ITEM_IMAGES = [
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1000&q=80"
+    ];
+
+    function sourceIdFromUrl() {
+      const pathname = window.location.pathname || '';
+      const segs = pathname.split('/').filter(Boolean);
+      if (segs[0] === 'platform' && segs[1]) return decodeURIComponent(segs[1]);
+      const u = new URL(window.location.href);
+      return u.searchParams.get('id') || '';
+    }
+
+    function itemImg(title, idx) {
+      const t = (title || '').toLowerCase();
+      if (t.includes('design') || t.includes('设计')) return 'https://images.unsplash.com/photo-1452802447250-470a88ac82bc?auto=format&fit=crop&w=1000&q=80';
+      return ITEM_IMAGES[idx % ITEM_IMAGES.length];
+    }
+
+    function renderItems(items) {
+      if (!items || !items.length) return '<p class="small">暂无内容</p>';
+      return items.map((it, idx) => `
+        <article class="item-card">
+          <a class="item-thumb" href="${it.url}" target="_blank" rel="noreferrer">
+            <img src="${itemImg(it.title, idx)}" alt="item image" loading="lazy" />
+          </a>
+          <div>
+            <h5><a href="${it.url}" target="_blank" rel="noreferrer">${it.title}</a></h5>
+            <p>${it.summary || ''}</p>
+            <div class="meta">
+              <span class="tag">${(it.mode || '').toUpperCase()}</span>
+              <span>${new Date(it.publish_time).toLocaleString()}</span>
+            </div>
+          </div>
+        </article>
+      `).join('');
+    }
+
+    async function loadPlatform() {
+      const sid = sourceIdFromUrl();
+      if (!sid) {
+        document.getElementById('platformRoot').innerHTML = '<p class="small">缺少平台 ID</p>';
+        return;
+      }
+
+      const data = await apiGet(`/platform/${encodeURIComponent(sid)}`);
+      document.getElementById('topHint').textContent = `${data.source_name} 频道`;
+      document.getElementById('pageTitle').textContent = data.source_name;
+      document.getElementById('modeTag').textContent = (data.mode || '').toUpperCase();
+
+      const hotItems = (data.items || []).filter((x) => x.mode === 'hot').slice(0, 10);
+      const newItems = (data.items || []).filter((x) => x.mode === 'new').slice(0, 10);
+
+      let content = '';
+      if (data.mode === 'both') {
+        content = `
+          <div class="dual-list-grid">
+            <div>
+              <h5 class="sublist-title">Hot Top10</h5>
+              ${renderItems(hotItems)}
+            </div>
+            <div>
+              <h5 class="sublist-title">New Top10</h5>
+              ${renderItems(newItems)}
+            </div>
+          </div>
+        `;
+      } else {
+        const items = (data.items || []).filter((x) => x.mode === data.mode).slice(0, 10);
+        content = renderItems(items);
+      }
+
+      document.getElementById('platformRoot').innerHTML = content;
+      document.getElementById('status').textContent = `最近加载：${new Date().toLocaleTimeString()}`;
+    }
+
+    document.getElementById('refreshBtn').onclick = async () => {
+      document.getElementById('status').textContent = '刷新中...';
+      try {
+        await apiPost('/refresh');
+        await loadPlatform();
+      } catch (e) {
+        document.getElementById('status').textContent = `刷新失败：${e.message}`;
+      }
+    };
+
+    loadPlatform().catch((e) => {
+      document.getElementById('status').textContent = `加载失败：${e.message}`;
+    });
+  </script>
+</body>
+</html>

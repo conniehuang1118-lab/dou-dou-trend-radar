@@ -1,0 +1,63 @@
+services:
+  - type: web
+    name: trend-radar-web
+    env: python
+    rootDir: backend
+    buildCommand: pip install -r requirements.txt
+    startCommand: uvicorn app.main:app --host 0.0.0.0 --port $PORT
+    healthCheckPath: /api/health
+    envVars:
+      - key: APP_ENV
+        value: prod
+      - key: APP_TIMEZONE
+        value: Asia/Shanghai
+      - key: ENABLE_INTERNAL_SCHEDULER
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trend-radar-db
+          property: connectionString
+
+  - type: cron
+    name: trend-radar-refresh-5m
+    env: python
+    rootDir: backend
+    schedule: "*/5 * * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.scripts.run_jobs refresh
+    envVars:
+      - key: APP_ENV
+        value: prod
+      - key: APP_TIMEZONE
+        value: Asia/Shanghai
+      - key: ENABLE_INTERNAL_SCHEDULER
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trend-radar-db
+          property: connectionString
+
+  - type: cron
+    name: trend-radar-digest-0800-cst
+    env: python
+    rootDir: backend
+    # Render cron uses UTC. 00:00 UTC = 08:00 Asia/Shanghai.
+    schedule: "0 0 * * *"
+    buildCommand: pip install -r requirements.txt
+    startCommand: python -m app.scripts.run_jobs digest
+    envVars:
+      - key: APP_ENV
+        value: prod
+      - key: APP_TIMEZONE
+        value: Asia/Shanghai
+      - key: ENABLE_INTERNAL_SCHEDULER
+        value: "false"
+      - key: DATABASE_URL
+        fromDatabase:
+          name: trend-radar-db
+          property: connectionString
+
+databases:
+  - name: trend-radar-db
+    databaseName: trend_radar
+    user: trend_radar

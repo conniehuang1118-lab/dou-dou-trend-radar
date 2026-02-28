@@ -1,0 +1,144 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>平台管理 - 趋势雷达</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="top-note">
+      <span>平台订阅管理（Muzli 风格行式）</span>
+      <span><a href="./index.html">返回首页</a></span>
+    </header>
+
+    <nav class="main-nav">
+      <div class="links">
+        <a href="./index.html">首页</a>
+        <a href="./sources.html">平台管理</a>
+      </div>
+      <h1 class="logo">SOURCES CONTROL</h1>
+      <div class="actions">
+        <button id="refreshBtn">立即刷新</button>
+        <span id="status" class="status">未执行</span>
+      </div>
+    </nav>
+
+    <section class="hero compact">
+      <h2>My Sources</h2>
+      <p>切换 enabled / mode 后会立即生效，首页订阅流会自动更新。</p>
+    </section>
+
+    <section class="panel" style="margin-top:16px;">
+      <h3 class="section-title">订阅列表</h3>
+      <div id="sourcesList" class="source-list-rows"></div>
+    </section>
+  </div>
+
+  <script src="./app.js"></script>
+  <script>
+    const iconMap = {
+      kr36: '📰', huxiu: '🐯', sspai: '🧰', zhihu_hot: '💡', weibo_hot: '🔥',
+      jike_mock: '🟠', github_trending: '🐙', huggingface_trending: '🤗',
+      bilibili_mock: '📺', x_trending: '✖', mock_burst: '⚡'
+    };
+
+    function emitHomeDirty() {
+      localStorage.setItem('trend-radar-home-dirty', String(Date.now()));
+    }
+
+    function sourceRow(s, c) {
+      return `
+        <div class="source-row" data-source-id="${s.id}">
+          <div class="source-main">
+            <div class="source-icon">${iconMap[s.id] || '🧩'}</div>
+            <div>
+              <div class="source-name">${s.name}</div>
+              <div class="small">今日信号 ${c.today_signals || 0} · 进入事件 ${c.covered_events || 0} · last_fetch ${s.last_fetch ? new Date(s.last_fetch).toLocaleString() : '-'}</div>
+            </div>
+          </div>
+          <div class="source-controls">
+            <label class="toggle-wrap">
+              <input type="checkbox" data-id="${s.id}" data-type="enabled" ${s.enabled ? 'checked' : ''} />
+              <span>启用</span>
+            </label>
+            <select data-id="${s.id}" data-type="mode">
+              <option value="hot" ${s.mode === 'hot' ? 'selected' : ''}>hot</option>
+              <option value="new" ${s.mode === 'new' ? 'selected' : ''}>new</option>
+              <option value="both" ${s.mode === 'both' ? 'selected' : ''}>both</option>
+            </select>
+          </div>
+        </div>
+      `;
+    }
+
+    async function loadSources() {
+      const [srcRes, contribRes] = await Promise.all([
+        apiGet('/sources'),
+        apiGet('/sources/contribution')
+      ]);
+
+      const prefs = loadPrefs();
+      const contribMap = {};
+      for (const c of (contribRes.items || [])) contribMap[c.source_id] = c;
+
+      const merged = (srcRes.items || []).map((s) => {
+        const p = prefs[s.id] || {};
+        return {
+          ...s,
+          enabled: p.enabled ?? s.enabled,
+          mode: p.mode ?? s.mode,
+          weight: Number(p.weight ?? s.weight),
+        };
+      });
+
+      const root = document.getElementById('sourcesList');
+      root.innerHTML = merged.map((s) => sourceRow(s, contribMap[s.id] || {})).join('');
+    }
+
+    document.getElementById('sourcesList').addEventListener('change', async (e) => {
+      const el = e.target;
+      const id = el.getAttribute('data-id');
+      const type = el.getAttribute('data-type');
+      if (!id || !type) return;
+
+      const p = loadPrefs();
+      p[id] = p[id] || {};
+
+      try {
+        if (type === 'enabled') {
+          const enabled = !!el.checked;
+          await apiPost(`/sources/${id}/toggle`, { enabled });
+          p[id].enabled = enabled;
+        } else if (type === 'mode') {
+          const mode = el.value;
+          await apiPost(`/sources/${id}/mode`, { mode });
+          p[id].mode = mode;
+        }
+        savePrefs(p);
+        emitHomeDirty();
+        document.getElementById('status').textContent = `已更新 ${id}`;
+      } catch (err) {
+        document.getElementById('status').textContent = `保存失败 ${id}: ${err.message}`;
+      }
+    });
+
+    document.getElementById('refreshBtn').onclick = async () => {
+      document.getElementById('status').textContent = '刷新中...';
+      try {
+        await apiPost('/refresh');
+        emitHomeDirty();
+        await loadSources();
+        document.getElementById('status').textContent = `刷新完成 ${new Date().toLocaleTimeString()}`;
+      } catch (err) {
+        document.getElementById('status').textContent = `刷新失败: ${err.message}`;
+      }
+    };
+
+    loadSources().catch((err) => {
+      document.getElementById('status').textContent = `加载失败: ${err.message}`;
+    });
+  </script>
+</body>
+</html>

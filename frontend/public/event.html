@@ -1,0 +1,84 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>事件详情 - 趋势雷达</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="top-note">
+      <span>事件详情视图</span>
+      <span><a href="./index.html">返回首页</a></span>
+    </header>
+    <div id="eventRoot" class="grid" style="gap:12px; margin-top:14px;"></div>
+  </div>
+  <script src="./app.js"></script>
+  <script>
+    function getEventId() {
+      const u = new URL(window.location.href);
+      return u.searchParams.get('id') || '';
+    }
+    async function render() {
+      const id = getEventId();
+      if (!id) {
+        document.getElementById('eventRoot').innerHTML = '<div class="panel">缺少事件 id</div>';
+        return;
+      }
+      try {
+        const data = await apiGet(`/events/${id}`);
+        if (!data || !data.event) {
+          document.getElementById('eventRoot').innerHTML = '<div class="panel">未找到该事件</div>';
+          return;
+        }
+        const e = data.event;
+        const grouped = data.signals_by_source || {};
+        const related = data.related_events || [];
+
+        document.getElementById('eventRoot').innerHTML = `
+          <section class="panel">
+            <h2 style="margin:0 0 8px;font-size:48px;line-height:1.1;">${e.title}</h2>
+            <p class="small">${e.summary || ''}</p>
+            <div class="meta">
+              <span>分类 ${e.category}</span>
+              <span>热度 ${fmtScore(e.heat_score)}</span>
+              <span>增速 ${fmtGrowth(e.growth_rate)}</span>
+              <span>平台 ${e.source_count}</span>
+              <span>信号 ${e.signals_count}</span>
+            </div>
+          </section>
+
+          <section class="panel">
+            <h3 class="section-title">代表内容（按平台）</h3>
+            ${Object.entries(grouped).map(([sid, items]) => `
+              <details class="details" open>
+                <summary><b>${sid}</b></summary>
+                ${items.map((s) => `
+                  <div class="event-item">
+                    <a href="${s.url}" target="_blank" rel="noreferrer">${s.title}</a>
+                    <div class="small">${s.source_name} · ${new Date(s.publish_time).toLocaleString()}</div>
+                  </div>
+                `).join('')}
+              </details>
+            `).join('')}
+          </section>
+
+          <section class="panel">
+            <h3 class="section-title">相关事件</h3>
+            ${related.map((r) => `
+              <div class="event-item">
+                <a href="./event.html?id=${encodeURIComponent(r.id)}">${r.title}</a>
+                <div class="small">热度 ${fmtScore(r.heat_score)} · 增速 ${fmtGrowth(r.growth_rate)}</div>
+              </div>
+            `).join('') || '<p class="small">暂无</p>'}
+          </section>
+        `;
+      } catch (err) {
+        document.getElementById('eventRoot').innerHTML = `<div class="panel">加载失败：${err.message}</div>`;
+      }
+    }
+    render();
+  </script>
+</body>
+</html>

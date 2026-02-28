@@ -1,0 +1,400 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>中文版全网趋势雷达 - 首页</title>
+  <link rel="stylesheet" href="./styles.css" />
+</head>
+<body>
+  <div class="shell">
+    <header class="top-note">
+      <span>每 5 分钟自动更新 | 每日 08:00 (CST) 快照</span>
+      <span>展示形态：平台订阅流为主，Event 为摘要</span>
+    </header>
+
+    <nav class="main-nav">
+      <div class="links">
+        <a href="./index.html">首页</a>
+        <a href="./sources.html">平台管理</a>
+      </div>
+      <h1 class="logo">DOUDOU GLOBAL TRENDING HUB</h1>
+      <div class="actions">
+        <button id="refreshBtn">立即刷新</button>
+        <span id="refreshStatus" class="status">未刷新</span>
+      </div>
+    </nav>
+
+    <section class="hero compact">
+      <h2>我的订阅流（My Subscriptions）</h2>
+      <p>左侧切平台筛选，点击编辑图标可管理订阅开关和模式。</p>
+    </section>
+
+    <section class="layout home-main-layout">
+      <aside class="panel platform-sidebar">
+        <div class="section-header-row">
+          <h3 class="section-title" style="margin:0;">平台列表</h3>
+          <button id="openManageBtn" class="icon-btn" title="编辑订阅">✎</button>
+        </div>
+        <div id="platformFilterRoot" class="platform-filter-list"></div>
+      </aside>
+
+      <main class="panel" id="subscriptionsMain">
+        <div class="section-header-row">
+          <h3 class="section-title" style="margin:0;">My Subscriptions</h3>
+          <a class="small" href="./sources.html">完整管理</a>
+        </div>
+        <div id="sectionsRoot" class="sections-stack"></div>
+      </main>
+
+      <aside class="panel sidebar-secondary">
+        <details open class="fold-box">
+          <summary>今日趋势 Event Top5（摘要）</summary>
+          <div id="topEventsRoot" class="top-events-compact"></div>
+        </details>
+        <div class="kv-list" style="margin-top:12px;">
+          <div class="small">若 provider 抓取失败，会自动回退 mock，保证每个平台至少 10 条可展示。</div>
+          <div class="small">mode=both 时会分为 Hot Top10 + New Top10 两列。</div>
+        </div>
+      </aside>
+    </section>
+  </div>
+
+  <div id="manageOverlay" class="drawer hidden" aria-hidden="true">
+    <div class="drawer-panel">
+      <div class="section-header-row" style="margin-bottom:8px;">
+        <h3 class="section-title" style="margin:0;">编辑订阅平台</h3>
+        <button id="closeManageBtn" class="icon-btn" title="关闭">×</button>
+      </div>
+      <p class="small" style="margin-top:0;">开启/关闭平台，或切换 Hot / New / Both，首页会立即同步。</p>
+      <div id="manageList" class="source-list-rows"></div>
+      <div id="manageStatus" class="small" style="margin-top:10px;"></div>
+    </div>
+  </div>
+
+  <script src="./app.js"></script>
+  <script>
+    const ITEM_IMAGES = [
+      "https://images.unsplash.com/photo-1518770660439-4636190af475?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1498050108023-c5249f4df085?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1517248135467-4c7edcad34c4?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1461749280684-dccba630e2f6?auto=format&fit=crop&w=1000&q=80",
+      "https://images.unsplash.com/photo-1519389950473-47ba0277781c?auto=format&fit=crop&w=1000&q=80"
+    ];
+
+    const iconMap = {
+      kr36: '📰', huxiu: '🐯', sspai: '🧰', zhihu_hot: '💡', weibo_hot: '🔥',
+      jike_mock: '🟠', github_trending: '🐙', huggingface_trending: '🤗',
+      bilibili_mock: '📺', x_trending: '✖', mock_burst: '⚡'
+    };
+
+    const modeLabel = { hot: '热榜', new: '最新', both: '热榜+最新' };
+    const SEEN_KEY = 'trend-radar-source-seen-v1';
+
+    const state = {
+      home: null,
+      sources: [],
+      activeSource: 'all',
+    };
+
+    function emitHomeDirty() {
+      localStorage.setItem('trend-radar-home-dirty', String(Date.now()));
+    }
+
+    function loadSeenMap() {
+      try {
+        return JSON.parse(localStorage.getItem(SEEN_KEY) || '{}');
+      } catch {
+        return {};
+      }
+    }
+
+    function saveSeenMap(map) {
+      localStorage.setItem(SEEN_KEY, JSON.stringify(map));
+    }
+
+    function latestTsForSource(sourceId) {
+      const section = ((state.home && state.home.sections) || []).find((s) => s.source_id === sourceId);
+      if (!section || !section.items || !section.items.length) return 0;
+      return section.items.reduce((acc, it) => {
+        const ts = new Date(it.publish_time || 0).getTime();
+        return Number.isFinite(ts) ? Math.max(acc, ts) : acc;
+      }, 0);
+    }
+
+    function hasNewForSource(sourceId) {
+      const seenMap = loadSeenMap();
+      const seenTs = Number(seenMap[sourceId] || 0);
+      const latestTs = latestTsForSource(sourceId);
+      return latestTs > seenTs;
+    }
+
+    function markSourceSeen(sourceId) {
+      if (!sourceId || sourceId === 'all') return;
+      const latestTs = latestTsForSource(sourceId);
+      const seenMap = loadSeenMap();
+      seenMap[sourceId] = latestTs || Date.now();
+      saveSeenMap(seenMap);
+    }
+
+    function upsertPref(sourceId, patch) {
+      const prefs = loadPrefs();
+      prefs[sourceId] = { ...(prefs[sourceId] || {}), ...patch };
+      savePrefs(prefs);
+    }
+
+    function itemImg(item, idx) {
+      const t = `${item.title || ""} ${item.summary || ""}`.toLowerCase();
+      if (t.includes("design") || t.includes("设计")) return "https://images.unsplash.com/photo-1452802447250-470a88ac82bc?auto=format&fit=crop&w=1000&q=80";
+      if (t.includes("ai")) return "https://images.unsplash.com/photo-1677442135136-760c813028c0?auto=format&fit=crop&w=1000&q=80";
+      return ITEM_IMAGES[idx % ITEM_IMAGES.length];
+    }
+
+    function renderCompactEvents(list) {
+      if (!list || !list.length) return '<p class="small">暂无趋势事件</p>';
+      return list.slice(0, 5).map((e, idx) => `
+        <article class="event-item compact-event-item">
+          <h4 class="compact-event-title">
+            <a class="rank-row" href="./event.html?id=${encodeURIComponent(e.id)}">
+              <span class="rank-num">${idx + 1}</span>
+              <span class="rank-title">${e.title}</span>
+            </a>
+          </h4>
+          <div class="small">${e.category} · 热度 ${fmtScore(e.heat_score)} · 增速 ${fmtGrowth(e.growth_rate)}</div>
+        </article>
+      `).join('');
+    }
+
+    function renderSourceFilters() {
+      const enabled = (state.sources || []).filter((s) => s.enabled);
+      if (state.activeSource !== 'all' && !enabled.find((x) => x.id === state.activeSource)) {
+        state.activeSource = 'all';
+      }
+      const root = document.getElementById('platformFilterRoot');
+      root.innerHTML = `
+        <button class="filter-pill ${state.activeSource === 'all' ? 'active' : ''}" data-source-filter="all">全部平台</button>
+        ${enabled.map((s) => `
+          <button class="filter-pill ${state.activeSource === s.id ? 'active' : ''}" data-source-filter="${s.id}">
+            <span class="source-pill-icon">
+              <span>${iconMap[s.id] || '🧩'}</span>
+              ${hasNewForSource(s.id) ? '<i class="new-dot" title="有新内容"></i>' : ''}
+            </span>
+            <span>${s.name}</span>
+          </button>
+        `).join('')}
+      `;
+    }
+
+    function getVisibleSections() {
+      const sections = (state.home && state.home.sections) || [];
+      if (state.activeSource === 'all') return sections;
+      return sections.filter((s) => s.source_id === state.activeSource);
+    }
+
+    function renderItemCard(it, idx) {
+      return `
+        <article class="item-card">
+          <a class="item-thumb" href="${it.url}" target="_blank" rel="noreferrer">
+            <img src="${itemImg(it, idx)}" alt="item image" loading="lazy" />
+          </a>
+          <div>
+            <h5><a href="${it.url}" target="_blank" rel="noreferrer">${it.title}</a></h5>
+            <p>${it.summary || ""}</p>
+            <div class="meta">
+              <span class="tag">${(it.mode || '').toUpperCase()}</span>
+              <span>${new Date(it.publish_time).toLocaleString()}</span>
+            </div>
+          </div>
+        </article>
+      `;
+    }
+
+    function renderSectionList(items) {
+      return (items || []).slice(0, 10).map((it, idx) => renderItemCard(it, idx)).join('') || '<p class="small">暂无数据</p>';
+    }
+
+    function renderSections() {
+      const sections = getVisibleSections();
+      const root = document.getElementById('sectionsRoot');
+      if (!sections.length) {
+        root.innerHTML = '<div class="panel"><p class="small">当前筛选下暂无平台内容，请切换左侧平台或修改订阅。</p></div>';
+        return;
+      }
+
+      root.innerHTML = sections.map((s) => {
+        const hotItems = (s.items || []).filter((x) => x.mode === 'hot').slice(0, 10);
+        const newItems = (s.items || []).filter((x) => x.mode === 'new').slice(0, 10);
+        let content = '';
+        if (s.mode === 'both') {
+          content = `
+            <div class="dual-list-grid">
+              <div>
+                <h5 class="sublist-title">Hot Top10</h5>
+                ${renderSectionList(hotItems)}
+              </div>
+              <div>
+                <h5 class="sublist-title">New Top10</h5>
+                ${renderSectionList(newItems)}
+              </div>
+            </div>
+          `;
+        } else {
+          const filtered = (s.items || []).filter((x) => x.mode === s.mode).slice(0, 10);
+          content = renderSectionList(filtered);
+        }
+
+        return `
+          <section class="source-section" data-source-id="${s.source_id}">
+            <div class="section-header-row">
+              <h4>${s.source_name}</h4>
+              <div class="section-actions">
+                <span class="tag mode-tag">${modeLabel[s.mode] || s.mode}</span>
+                <a class="small" href="/platform/${encodeURIComponent(s.source_id)}">查看更多</a>
+                <button class="ghost-btn" data-source-refresh="${s.source_id}">刷新</button>
+              </div>
+            </div>
+            ${content}
+          </section>
+        `;
+      }).join('');
+    }
+
+    function renderManageList() {
+      const list = state.sources || [];
+      const root = document.getElementById('manageList');
+      root.innerHTML = list.map((s) => `
+        <div class="source-row">
+          <div class="source-main">
+            <div class="source-icon">${iconMap[s.id] || '🧩'}</div>
+            <div>
+              <div class="source-name">${s.name}</div>
+              <div class="small">${s.id}</div>
+            </div>
+          </div>
+          <div class="source-controls">
+            <label class="toggle-wrap">
+              <input type="checkbox" data-manage-id="${s.id}" data-manage-type="enabled" ${s.enabled ? 'checked' : ''} />
+              <span>启用</span>
+            </label>
+            <select data-manage-id="${s.id}" data-manage-type="mode">
+              <option value="hot" ${s.mode === 'hot' ? 'selected' : ''}>hot</option>
+              <option value="new" ${s.mode === 'new' ? 'selected' : ''}>new</option>
+              <option value="both" ${s.mode === 'both' ? 'selected' : ''}>both</option>
+            </select>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    function renderAll() {
+      const home = state.home || { top_events: [] };
+      document.getElementById('topEventsRoot').innerHTML = renderCompactEvents(home.top_events || []);
+      renderSourceFilters();
+      renderSections();
+      renderManageList();
+      document.getElementById('refreshStatus').textContent = `最近加载：${new Date().toLocaleTimeString()}`;
+    }
+
+    async function loadHomeAndSources() {
+      const [home, sourcesRes] = await Promise.all([apiGet('/home'), apiGet('/sources')]);
+      state.home = home;
+      state.sources = sourcesRes.items || [];
+      renderAll();
+    }
+
+    async function refreshAll() {
+      document.getElementById('refreshStatus').textContent = '刷新中...';
+      await apiPost('/refresh');
+      await loadHomeAndSources();
+      emitHomeDirty();
+    }
+
+    document.getElementById('refreshBtn').onclick = async () => {
+      try {
+        await refreshAll();
+      } catch (e) {
+        document.getElementById('refreshStatus').textContent = `刷新失败：${e.message}`;
+      }
+    };
+
+    document.getElementById('platformFilterRoot').addEventListener('click', (e) => {
+      const btn = e.target.closest('[data-source-filter]');
+      if (!btn) return;
+      state.activeSource = btn.getAttribute('data-source-filter') || 'all';
+      markSourceSeen(state.activeSource);
+      renderSourceFilters();
+      renderSections();
+    });
+
+    document.getElementById('sectionsRoot').addEventListener('click', async (e) => {
+      const btn = e.target.closest('[data-source-refresh]');
+      if (!btn) return;
+      btn.disabled = true;
+      btn.textContent = '刷新中';
+      try {
+        await refreshAll();
+      } finally {
+        btn.disabled = false;
+        btn.textContent = '刷新';
+      }
+    });
+
+    document.getElementById('openManageBtn').addEventListener('click', () => {
+      const overlay = document.getElementById('manageOverlay');
+      overlay.classList.remove('hidden');
+      overlay.setAttribute('aria-hidden', 'false');
+    });
+
+    document.getElementById('closeManageBtn').addEventListener('click', () => {
+      const overlay = document.getElementById('manageOverlay');
+      overlay.classList.add('hidden');
+      overlay.setAttribute('aria-hidden', 'true');
+    });
+
+    document.getElementById('manageOverlay').addEventListener('click', (e) => {
+      if (e.target.id === 'manageOverlay') {
+        e.currentTarget.classList.add('hidden');
+        e.currentTarget.setAttribute('aria-hidden', 'true');
+      }
+    });
+
+    document.getElementById('manageList').addEventListener('change', async (e) => {
+      const el = e.target;
+      const id = el.getAttribute('data-manage-id');
+      const type = el.getAttribute('data-manage-type');
+      if (!id || !type) return;
+
+      const statusNode = document.getElementById('manageStatus');
+      statusNode.textContent = '保存中...';
+
+      try {
+        if (type === 'enabled') {
+          const enabled = !!el.checked;
+          await apiPost(`/sources/${id}/toggle`, { enabled });
+          upsertPref(id, { enabled });
+        } else if (type === 'mode') {
+          const mode = el.value;
+          await apiPost(`/sources/${id}/mode`, { mode });
+          upsertPref(id, { mode });
+        }
+
+        emitHomeDirty();
+        await loadHomeAndSources();
+        statusNode.textContent = `已更新 ${id}`;
+      } catch (err) {
+        statusNode.textContent = `更新失败 ${id}: ${err.message}`;
+      }
+    });
+
+    window.addEventListener('storage', (e) => {
+      if (e.key === 'trend-radar-home-dirty') {
+        loadHomeAndSources().catch(() => {});
+      }
+    });
+
+    loadHomeAndSources().catch((e) => {
+      document.getElementById('refreshStatus').textContent = `加载失败：${e.message}`;
+    });
+  </script>
+</body>
+</html>

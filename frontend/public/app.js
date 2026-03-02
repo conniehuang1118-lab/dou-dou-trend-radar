@@ -100,7 +100,7 @@ function loadMockStore() {
     id: `${sid}-${mode}-${i + 1}`,
     title: `${sid} ${mode === "both" ? (i < 10 ? "hot" : "new") : mode} 内容 ${i + 1}`,
     summary: "平台条目摘要，用于页面可视化演示。",
-    url: "https://example.com",
+    url: `https://www.baidu.com/s?wd=${encodeURIComponent(`${sid} 热点`)}`,
     publish_time: ts(i * 4 + 1),
     mode: mode === "both" ? (i < 10 ? "hot" : "new") : mode,
   }));
@@ -149,7 +149,7 @@ function rebuildMockHome(store) {
     id: `${sid}-${mode}-${i + 1}`,
     title: `${sid} ${mode === "both" ? (i < 10 ? "hot" : "new") : mode} 内容 ${i + 1}`,
     summary: "平台条目摘要，用于页面可视化演示。",
-    url: "https://example.com",
+    url: `https://www.baidu.com/s?wd=${encodeURIComponent(`${sid} 热点`)}`,
     publish_time: ts(i * 3 + 1),
     mode: mode === "both" ? (i < 10 ? "hot" : "new") : mode,
   }));
@@ -228,7 +228,7 @@ async function apiGet(path) {
           source_id: src.id,
           source_name: src.name,
           title: `${event.title} - ${src.name} 信号 ${i + 1}`,
-          url: "https://example.com",
+          url: `https://www.baidu.com/s?wd=${encodeURIComponent(event.title)}`,
           publish_time: new Date(Date.now() - (i + 1) * 600000).toISOString()
         }));
       }

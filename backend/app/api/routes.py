@@ -23,6 +23,13 @@ class ModePayload(BaseModel):
     mode: str
 
 
+def _filter_visible_sources(rows: list[dict]) -> list[dict]:
+    settings = get_settings()
+    if settings.enable_mock_sources:
+        return rows
+    return [r for r in rows if not bool(r.get("is_mock"))]
+
+
 def _fallback_items(source_id: str, source_name: str, mode: str, start_rank: int, count: int) -> list[dict]:
     now = datetime.now(timezone.utc)
     items: list[dict] = []
@@ -83,7 +90,7 @@ def health() -> dict:
 
 @router.get("/sources")
 def get_sources() -> dict:
-    rows = repository.list_sources()
+    rows = _filter_visible_sources(repository.list_sources())
     return {
         "items": [
             {
@@ -140,7 +147,7 @@ def refresh() -> dict:
 @router.get("/home")
 def home() -> dict:
     events = [serialize_event(x) for x in repository.list_events(limit=200)]
-    sources = [x for x in repository.list_sources() if x["enabled"]]
+    sources = [x for x in _filter_visible_sources(repository.list_sources()) if x["enabled"]]
 
     sections = [_build_section_payload(s) for s in sources]
 
@@ -154,7 +161,7 @@ def home() -> dict:
 @router.get("/platform/{source_id}")
 def platform_feed(source_id: str) -> dict:
     source = repository.get_source(source_id)
-    if not source:
+    if not source or (bool(source.get("is_mock")) and not get_settings().enable_mock_sources):
         raise HTTPException(status_code=404, detail="source not found")
     section = _build_section_payload(source)
     return {
@@ -169,7 +176,7 @@ def platform_feed(source_id: str) -> dict:
 
 @router.get("/sources/contribution")
 def source_contribution() -> dict:
-    rows = repository.source_contribution_today()
+    rows = _filter_visible_sources(repository.source_contribution_today())
     return {
         "items": [
             {

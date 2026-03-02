@@ -33,6 +33,7 @@ class Settings:
     zhihu_hot_rss: str = os.getenv("ZHIHU_HOT_RSS", "https://rsshub.app/zhihu/hotlist")
     x_trend_rss: str = os.getenv("X_TREND_RSS", "https://rsshub.app/x/trending")
     allow_mock_backfill: bool = _as_bool(os.getenv("ALLOW_MOCK_BACKFILL"), False)
+    enable_mock_sources: bool = _as_bool(os.getenv("ENABLE_MOCK_SOURCES"), False)
 
 
 @lru_cache(maxsize=1)

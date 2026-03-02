@@ -383,6 +383,7 @@ def source_contribution_today() -> list[dict]:
                   GROUP BY rs.source_id
                 )
                 SELECT s.id, s.name, s.enabled, s.mode, s.weight, s.last_fetch,
+                       s.is_mock,
                        COALESCE(sc.signals_count, 0) AS today_signals,
                        COALESCE(ec.events_count, 0) AS covered_events
                 FROM sources s

@@ -281,7 +281,12 @@ def run_pipeline() -> dict:
         settings = get_settings()
         repository.normalize_legacy_mock_urls()
         provider_map = build_provider_map()
-        source_rows = [x for x in repository.list_sources() if x["enabled"]]
+        enabled_rows = [x for x in repository.list_sources() if x["enabled"]]
+        source_rows = [
+            x for x in enabled_rows
+            if settings.enable_mock_sources or not bool(x.get("is_mock"))
+        ]
+        allowed_source_ids = {x["id"] for x in source_rows}
 
         ingested: list[RawSignal] = []
         for src in source_rows:
@@ -336,7 +341,7 @@ def run_pipeline() -> dict:
 
         inserted = repository.insert_raw_signals(deduped, fps)
 
-        recent = repository.list_recent_signals(48)
+        recent = [r for r in repository.list_recent_signals(48) if r["source_id"] in allowed_source_ids]
         for r in recent:
             if not r.get("extracted_keywords"):
                 r["extracted_keywords"] = extract_keywords(f"{r['title']} {r.get('content') or ''}", top_k=10)
@@ -372,7 +377,7 @@ def run_pipeline() -> dict:
             if ext_deduped:
                 repository.insert_raw_signals(ext_deduped, ext_fps)
 
-            recent = repository.list_recent_signals(48)
+            recent = [r for r in repository.list_recent_signals(48) if r["source_id"] in allowed_source_ids]
             for r in recent:
                 if not r.get("extracted_keywords"):
                     r["extracted_keywords"] = extract_keywords(f"{r['title']} {r.get('content') or ''}", top_k=10)

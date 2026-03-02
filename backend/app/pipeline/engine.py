@@ -278,6 +278,8 @@ def run_pipeline() -> dict:
     now = datetime.now(timezone.utc)
 
     try:
+        settings = get_settings()
+        repository.normalize_legacy_mock_urls()
         provider_map = build_provider_map()
         source_rows = [x for x in repository.list_sources() if x["enabled"]]
 
@@ -285,17 +287,30 @@ def run_pipeline() -> dict:
         for src in source_rows:
             provider = provider_map.get(src["id"])
             signals: list[RawSignal] = []
+            source_is_mock = bool(src.get("is_mock"))
             if provider:
                 try:
                     signals = provider.fetch()
                 except Exception:
                     signals = []
-            if len(signals) < 10:
-                signals = _fallback_for_source(src["id"], src["name"])
+            # Real sources: keep only fetched real signals (no forced fake fill).
+            # Mock sources: only backfill when explicitly enabled by env flag.
+            if source_is_mock and settings.allow_mock_backfill and len(signals) < 10:
+                fallback = _fallback_for_source(src["id"], src["name"])
+                existing = {f"{s.title}|{s.url}" for s in signals}
+                for fb in fallback:
+                    key = f"{fb.title}|{fb.url}"
+                    if key in existing:
+                        continue
+                    signals.append(fb)
+                    existing.add(key)
+                    if len(signals) >= 10:
+                        break
             ingested.extend(signals)
             repository.touch_source_last_fetch(src["id"])
 
-        ingested = _ensure_minimum_dataset(source_rows, ingested)
+        if settings.allow_mock_backfill:
+            ingested = _ensure_minimum_dataset(source_rows, ingested)
 
         normalized = [_normalize_and_enrich(x) for x in ingested if x.title and x.url]
 
@@ -331,7 +346,7 @@ def run_pipeline() -> dict:
         events = _build_events(clusters, prev_map)
 
         # hard guarantee for demo acceptance
-        if len(events) < 20:
+        if settings.allow_mock_backfill and len(events) < 20:
             extra = _fallback_for_source("mock_burst", "种子源")
             ext_norm = [_normalize_and_enrich(x) for x in extra]
             # Make sure fallback signals are persisted before they can be referenced by event mappings.

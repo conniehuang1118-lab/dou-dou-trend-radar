@@ -20,7 +20,7 @@ def run_migrations(sql_path: str) -> None:
 def list_sources() -> list[dict]:
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM sources ORDER BY id")
+            cur.execute("SELECT * FROM sources ORDER BY is_mock ASC, id ASC")
             return list(cur.fetchall())
 
 
@@ -61,6 +61,19 @@ def touch_source_last_fetch(source_id: str) -> None:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE sources SET last_fetch=NOW(), updated_at=NOW() WHERE id=%s", (source_id,))
+        conn.commit()
+
+
+def normalize_legacy_mock_urls() -> None:
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                UPDATE raw_signals
+                SET url = 'https://www.baidu.com/s?wd=' || replace(title, ' ', '+')
+                WHERE url ~ '^https://mock[\\.-]'
+                """
+            )
         conn.commit()
 
 

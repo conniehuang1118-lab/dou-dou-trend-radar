@@ -2,10 +2,12 @@ from __future__ import annotations
 
 from collections import defaultdict
 from datetime import datetime, timezone
+from urllib.parse import quote_plus
 
 from fastapi import APIRouter, HTTPException
 from pydantic import BaseModel
 
+from app.core.config import get_settings
 from app.db import repository
 from app.pipeline.engine import build_daily_snapshot, run_pipeline, serialize_event
 from app.pipeline.services.text_ops import jaccard
@@ -31,7 +33,7 @@ def _fallback_items(source_id: str, source_name: str, mode: str, start_rank: int
                 "id": f"mock-{source_id}-{mode}-{rank}",
                 "title": f"{source_name} {mode.upper()} 热点 {rank}",
                 "summary": f"{source_name} 渠道回退示例内容（{mode}）",
-                "url": "https://example.com",
+                "url": f"https://www.baidu.com/s?wd={quote_plus(source_name + ' 热点')}",
                 "publish_time": now.isoformat(),
                 "mode": mode,
             }
@@ -39,24 +41,32 @@ def _fallback_items(source_id: str, source_name: str, mode: str, start_rank: int
     return items
 
 
-def _build_section_payload(source_id: str, source_name: str, mode: str) -> dict:
+def _build_section_payload(source: dict) -> dict:
+    source_id = source["id"]
+    source_name = source["name"]
+    mode = source["mode"]
+    is_mock = bool(source.get("is_mock"))
+    allow_mock_backfill = get_settings().allow_mock_backfill
     items = repository.list_source_items(source_id, mode, limit_each=10)
 
     hot_items = [x for x in items if x.get("mode") == "hot"]
     new_items = [x for x in items if x.get("mode") == "new"]
 
-    if mode == "hot" and len(hot_items) < 10:
+    if is_mock and allow_mock_backfill and mode == "hot" and len(hot_items) < 10:
         hot_items.extend(_fallback_items(source_id, source_name, "hot", len(hot_items), 10 - len(hot_items)))
         items = hot_items[:10]
-    elif mode == "new" and len(new_items) < 10:
+    elif is_mock and allow_mock_backfill and mode == "new" and len(new_items) < 10:
         new_items.extend(_fallback_items(source_id, source_name, "new", len(new_items), 10 - len(new_items)))
         items = new_items[:10]
     elif mode == "both":
-        if len(hot_items) < 10:
-            hot_items.extend(_fallback_items(source_id, source_name, "hot", len(hot_items), 10 - len(hot_items)))
-        if len(new_items) < 10:
-            new_items.extend(_fallback_items(source_id, source_name, "new", len(new_items), 10 - len(new_items)))
-        items = hot_items[:10] + new_items[:10]
+        if not (is_mock and allow_mock_backfill):
+            items = hot_items + new_items
+        else:
+            if len(hot_items) < 10:
+                hot_items.extend(_fallback_items(source_id, source_name, "hot", len(hot_items), 10 - len(hot_items)))
+            if len(new_items) < 10:
+                new_items.extend(_fallback_items(source_id, source_name, "new", len(new_items), 10 - len(new_items)))
+            items = hot_items[:10] + new_items[:10]
 
     return {
         "source_id": source_id,
@@ -132,7 +142,7 @@ def home() -> dict:
     events = [serialize_event(x) for x in repository.list_events(limit=200)]
     sources = [x for x in repository.list_sources() if x["enabled"]]
 
-    sections = [_build_section_payload(s["id"], s["name"], s["mode"]) for s in sources]
+    sections = [_build_section_payload(s) for s in sources]
 
     return {
         "sections": sections,
@@ -146,7 +156,7 @@ def platform_feed(source_id: str) -> dict:
     source = repository.get_source(source_id)
     if not source:
         raise HTTPException(status_code=404, detail="source not found")
-    section = _build_section_payload(source["id"], source["name"], source["mode"])
+    section = _build_section_payload(source)
     return {
         "source_id": source["id"],
         "source_name": source["name"],

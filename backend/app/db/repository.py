@@ -20,14 +20,39 @@ def run_migrations(sql_path: str) -> None:
 def list_sources() -> list[dict]:
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM sources ORDER BY is_mock ASC, id ASC")
+            cur.execute(
+                """
+                SELECT s.*,
+                       COALESCE(sh.status, 'unknown') AS availability_status,
+                       sh.message AS availability_message,
+                       sh.last_checked_at AS availability_checked_at,
+                       sh.last_success_at AS availability_success_at,
+                       COALESCE(sh.last_fetched_count, 0) AS availability_fetched_count
+                FROM sources s
+                LEFT JOIN source_health sh ON sh.source_id = s.id
+                ORDER BY s.is_mock ASC, s.id ASC
+                """
+            )
             return list(cur.fetchall())
 
 
 def get_source(source_id: str) -> dict | None:
     with get_conn() as conn:
         with conn.cursor() as cur:
-            cur.execute("SELECT * FROM sources WHERE id = %s", (source_id,))
+            cur.execute(
+                """
+                SELECT s.*,
+                       COALESCE(sh.status, 'unknown') AS availability_status,
+                       sh.message AS availability_message,
+                       sh.last_checked_at AS availability_checked_at,
+                       sh.last_success_at AS availability_success_at,
+                       COALESCE(sh.last_fetched_count, 0) AS availability_fetched_count
+                FROM sources s
+                LEFT JOIN source_health sh ON sh.source_id = s.id
+                WHERE s.id = %s
+                """,
+                (source_id,),
+            )
             return cur.fetchone()
 
 
@@ -61,6 +86,43 @@ def touch_source_last_fetch(source_id: str) -> None:
     with get_conn() as conn:
         with conn.cursor() as cur:
             cur.execute("UPDATE sources SET last_fetch=NOW(), updated_at=NOW() WHERE id=%s", (source_id,))
+        conn.commit()
+
+
+def upsert_source_health(
+    source_id: str,
+    status: str,
+    message: str,
+    fetched_count: int,
+    checked_at: datetime,
+) -> None:
+    if status not in {"ok", "unavailable", "unknown"}:
+        status = "unknown"
+    with get_conn() as conn:
+        with conn.cursor() as cur:
+            cur.execute(
+                """
+                INSERT INTO source_health(
+                    source_id, status, message, last_checked_at, last_success_at, last_fetched_count, updated_at
+                )
+                VALUES(
+                    %s, %s, %s, %s,
+                    CASE WHEN %s = 'ok' THEN %s ELSE NULL END,
+                    %s, NOW()
+                )
+                ON CONFLICT(source_id) DO UPDATE SET
+                    status = EXCLUDED.status,
+                    message = EXCLUDED.message,
+                    last_checked_at = EXCLUDED.last_checked_at,
+                    last_success_at = CASE
+                        WHEN EXCLUDED.status = 'ok' THEN EXCLUDED.last_checked_at
+                        ELSE source_health.last_success_at
+                    END,
+                    last_fetched_count = EXCLUDED.last_fetched_count,
+                    updated_at = NOW()
+                """,
+                (source_id, status, message, checked_at, status, checked_at, max(0, int(fetched_count))),
+            )
         conn.commit()
 
 
@@ -384,9 +446,14 @@ def source_contribution_today() -> list[dict]:
                 )
                 SELECT s.id, s.name, s.enabled, s.mode, s.weight, s.last_fetch,
                        s.is_mock,
+                       COALESCE(sh.status, 'unknown') AS availability_status,
+                       sh.message AS availability_message,
+                       sh.last_checked_at AS availability_checked_at,
+                       COALESCE(sh.last_fetched_count, 0) AS availability_fetched_count,
                        COALESCE(sc.signals_count, 0) AS today_signals,
                        COALESCE(ec.events_count, 0) AS covered_events
                 FROM sources s
+                LEFT JOIN source_health sh ON sh.source_id = s.id
                 LEFT JOIN signal_cte sc ON sc.source_id = s.id
                 LEFT JOIN event_cte ec ON ec.source_id = s.id
                 ORDER BY s.id

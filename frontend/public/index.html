@@ -97,6 +97,10 @@
       activeSource: 'all',
     };
 
+    function isUnavailable(source) {
+      return (source?.availability_status || 'unknown') === 'unavailable';
+    }
+
     function emitHomeDirty() {
       localStorage.setItem('trend-radar-home-dirty', String(Date.now()));
     }
@@ -179,7 +183,10 @@
               <span>${iconMap[s.id] || '🧩'}</span>
               ${hasNewForSource(s.id) ? '<i class="new-dot" title="有新内容"></i>' : ''}
             </span>
-            <span>${s.name}</span>
+            <span>
+              ${s.name}
+              ${isUnavailable(s) ? '<em class="availability-inline">暂不可用</em>' : ''}
+            </span>
           </button>
         `).join('')}
       `;
@@ -227,12 +234,17 @@
       root.innerHTML = sections.map((s) => {
         const hotItems = (s.items || []).filter((x) => (x.mode || 'hot') === 'hot').slice(0, 10);
         const content = renderSectionList(hotItems);
+        const unavailable = (s.availability_status || 'unknown') === 'unavailable';
+        const availabilityHint = unavailable
+          ? `<span class="tag tag-unavailable" title="${sanitizeText(s.availability_message || '抓取失败')}">暂不可用</span>`
+          : '';
 
         return `
           <section class="source-section" data-source-id="${s.source_id}">
             <div class="section-header-row">
               <h4>${s.source_name}</h4>
               <div class="section-actions">
+                ${availabilityHint}
                 <span class="tag mode-tag">${modeLabel.hot}</span>
                 <a class="small" href="/platform/${encodeURIComponent(s.source_id)}">查看更多</a>
                 <button class="ghost-btn" data-source-refresh="${s.source_id}">刷新</button>

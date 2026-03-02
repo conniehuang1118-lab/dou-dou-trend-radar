@@ -68,6 +68,10 @@ def _build_section_payload(source: dict) -> dict:
         "source_name": source_name,
         "mode": mode,
         "items": items,
+        "availability_status": source.get("availability_status") or "unknown",
+        "availability_message": source.get("availability_message") or "",
+        "availability_checked_at": source["availability_checked_at"].isoformat() if source.get("availability_checked_at") else None,
+        "availability_fetched_count": int(source.get("availability_fetched_count") or 0),
     }
 
 
@@ -90,6 +94,10 @@ def get_sources() -> dict:
                 "weight": int(r["weight"]),
                 "last_fetch": r["last_fetch"].isoformat() if r.get("last_fetch") else None,
                 "is_mock": bool(r["is_mock"]),
+                "availability_status": r.get("availability_status") or "unknown",
+                "availability_message": r.get("availability_message") or "",
+                "availability_checked_at": r["availability_checked_at"].isoformat() if r.get("availability_checked_at") else None,
+                "availability_fetched_count": int(r.get("availability_fetched_count") or 0),
             }
             for r in rows
         ]
@@ -165,6 +173,10 @@ def platform_feed(source_id: str) -> dict:
         "enabled": bool(source["enabled"]),
         "mode": "hot",
         "last_fetch": source["last_fetch"].isoformat() if source.get("last_fetch") else None,
+        "availability_status": source.get("availability_status") or "unknown",
+        "availability_message": source.get("availability_message") or "",
+        "availability_checked_at": source["availability_checked_at"].isoformat() if source.get("availability_checked_at") else None,
+        "availability_fetched_count": int(source.get("availability_fetched_count") or 0),
         "items": section["items"],
     }
 
@@ -183,6 +195,10 @@ def source_contribution() -> dict:
                 "today_signals": int(r["today_signals"]),
                 "covered_events": int(r["covered_events"]),
                 "last_fetch": r["last_fetch"].isoformat() if r.get("last_fetch") else None,
+                "availability_status": r.get("availability_status") or "unknown",
+                "availability_message": r.get("availability_message") or "",
+                "availability_checked_at": r["availability_checked_at"].isoformat() if r.get("availability_checked_at") else None,
+                "availability_fetched_count": int(r.get("availability_fetched_count") or 0),
             }
             for r in rows
         ]

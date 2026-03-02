@@ -49,6 +49,11 @@
     }
 
     function sourceRow(s, c) {
+      const unavailable = (s.availability_status || 'unknown') === 'unavailable';
+      const statusTag = unavailable
+        ? `<span class="tag tag-unavailable">暂不可用</span>`
+        : `<span class="tag">正常</span>`;
+      const statusReason = unavailable && s.availability_message ? ` · ${sanitizeText(s.availability_message, 80)}` : '';
       return `
         <div class="source-row" data-source-id="${s.id}">
           <div class="source-main">
@@ -56,6 +61,7 @@
             <div>
               <div class="source-name">${s.name}</div>
               <div class="small">今日信号 ${c.today_signals || 0} · 进入事件 ${c.covered_events || 0} · last_fetch ${s.last_fetch ? new Date(s.last_fetch).toLocaleString() : '-'}</div>
+              <div class="small">${statusTag}${statusReason}</div>
             </div>
           </div>
           <div class="source-controls">

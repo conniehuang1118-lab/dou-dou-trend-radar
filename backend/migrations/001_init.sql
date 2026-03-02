@@ -90,6 +90,24 @@ CREATE TABLE IF NOT EXISTS pipeline_runs (
   message TEXT
 );
 
+CREATE TABLE IF NOT EXISTS source_health (
+  source_id TEXT PRIMARY KEY REFERENCES sources(id) ON DELETE CASCADE,
+  status TEXT NOT NULL DEFAULT 'unknown' CHECK (status IN ('ok', 'unavailable', 'unknown')),
+  message TEXT,
+  last_checked_at TIMESTAMPTZ,
+  last_success_at TIMESTAMPTZ,
+  last_fetched_count INTEGER NOT NULL DEFAULT 0,
+  updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()
+);
+ALTER TABLE source_health ADD COLUMN IF NOT EXISTS status TEXT NOT NULL DEFAULT 'unknown';
+ALTER TABLE source_health ADD COLUMN IF NOT EXISTS message TEXT;
+ALTER TABLE source_health ADD COLUMN IF NOT EXISTS last_checked_at TIMESTAMPTZ;
+ALTER TABLE source_health ADD COLUMN IF NOT EXISTS last_success_at TIMESTAMPTZ;
+ALTER TABLE source_health ADD COLUMN IF NOT EXISTS last_fetched_count INTEGER NOT NULL DEFAULT 0;
+ALTER TABLE source_health ADD COLUMN IF NOT EXISTS updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW();
+ALTER TABLE source_health DROP CONSTRAINT IF EXISTS source_health_status_check;
+ALTER TABLE source_health ADD CONSTRAINT source_health_status_check CHECK (status IN ('ok', 'unavailable', 'unknown'));
+
 INSERT INTO sources (id, name, provider_type, enabled, mode, weight, is_mock)
 VALUES
   ('kr36', '36氪', 'rss_hot', TRUE, 'both', 4, FALSE),

@@ -63,6 +63,8 @@ python -m app.scripts.seed_mock
    - `SHARE_AUTH_ENABLED=true`（开启基础访问密码）
    - `SHARE_AUTH_USERNAME=<你的用户名>`
    - `SHARE_AUTH_PASSWORD=<你的密码>`
+   - `ENABLE_MOCK_SOURCES=false`（默认仅展示真实源）
+   - `ALLOW_MOCK_BACKFILL=false`（默认不做 mock 回填）
    - 可选：`ZHIHU_HOT_RSS`、`X_TREND_RSS`、`X_BEARER_TOKEN`
 5. 等待部署完成后，访问 Web URL（如 `https://xxx.onrender.com`）。
 
@@ -83,7 +85,7 @@ python -m app.scripts.seed_mock
 ### 上线后 5 分钟验收
 1. 打开 `https://<your-domain>/api/health`，应返回 `status=ok`
 2. 打开首页，能看到订阅流分段
-3. 在 Sources 切换某个平台 enabled/mode，首页立即变化
+3. 在 Sources 切换某个平台 enabled，首页立即变化
 4. 手动触发 `POST /api/refresh` 后数据刷新
 5. 检查 Render 的两个 Cron Job 是否成功执行
 
@@ -93,11 +95,12 @@ python -m app.scripts.seed_mock
   - [x] 平台订阅流为主（按 source 分段）
   - [x] 今日趋势 Top10（Event 摘要）
   - [x] 左侧平台筛选 + 红点新内容提示
-  - [x] 按平台分段展示（Hot/New/Both）
+  - [x] 按平台分段展示（仅 Hot Top10）
+  - [x] 真实源可用性标记（正常/暂不可用）
   - [x] 立即刷新按钮（触发后端 `/api/refresh`）
 - [x] `/sources` 平台管理
   - [x] icon + name + toggle
-  - [x] mode（hot/new/both）
+  - [x] 平台可用性状态（正常/暂不可用）
   - [x] LocalStorage 保存配置
   - [x] 立即刷新
 - [x] 后端 API 打通
@@ -117,15 +120,10 @@ python -m app.scripts.seed_mock
 - X Trending（RSSHub 路由）
 
 ### Mock 回退
-当真实抓取失败或受限时，自动回退到 Mock（同 source_id）：
+默认不展示 mock 源。仅在你显式开启 `ENABLE_MOCK_SOURCES=true` 或 `ALLOW_MOCK_BACKFILL=true` 时启用：
 - 即刻（Mock）
 - B站科技（Mock）
 - 种子爆发信号（Mock）
-
-保底规则：
-- 首页 Event ≥ 20
-- Breaking ≥ 3
-- 每个 enabled 平台 section 至少 10 条 item
 
 ## API 文档（最小稳定）
 
@@ -134,9 +132,13 @@ python -m app.scripts.seed_mock
 - `id`
 - `name`
 - `enabled`
-- `mode` (`hot|new|both`)
+- `mode` (`hot`)
 - `weight`
 - `last_fetch`
+- `availability_status` (`ok|unavailable|unknown`)
+- `availability_message`
+- `availability_checked_at`
+- `availability_fetched_count`
 
 ### `POST /api/sources/{id}/toggle`
 请求：
@@ -145,6 +147,7 @@ python -m app.scripts.seed_mock
 ```
 
 ### `POST /api/sources/{id}/mode`
+> 当前版本仅支持 `hot`
 请求：
 ```json
 { "mode": "hot" }
@@ -162,6 +165,7 @@ python -m app.scripts.seed_mock
       "source_id": "zhihu_hot",
       "source_name": "知乎热榜",
       "mode": "hot",
+      "availability_status": "ok",
       "items": [ItemCard]
     }
   ],
@@ -178,6 +182,7 @@ python -m app.scripts.seed_mock
   "source_name": "知乎热榜",
   "enabled": true,
   "mode": "hot",
+  "availability_status": "ok",
   "last_fetch": "2026-02-28T07:00:00Z",
   "items": [ItemCard]
 }
@@ -235,14 +240,15 @@ trend-radar-mvp/
 
 ## Pipeline（简化版）
 
-1. ingest（真实 Provider，失败自动 fallback mock）
+1. ingest（真实 Provider）
 2. normalize（字段清洗 + 关键词抽取）
 3. dedupe（title+url 强去重；title 弱去重）
 4. cluster（关键词 Jaccard ≥ 0.35）
 5. 事件聚合（平台数、信号数、关键词、摘要）
 6. heat_score（简化热度公式 + 权重 + 时间衰减）
 7. Breaking（增速 ≥ 0.40 且平台数 ≥ 3）
-8. 持久化 events + mappings + history
+8. source health（每个真实源记录抓取可用性）
+9. 持久化 events + mappings + history
 
 ## 环境变量
 

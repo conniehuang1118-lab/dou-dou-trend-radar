@@ -296,8 +296,39 @@ def run_pipeline() -> dict:
             if provider:
                 try:
                     signals = provider.fetch()
-                except Exception:
+                    if len(signals) > 0:
+                        repository.upsert_source_health(
+                            src["id"],
+                            "ok",
+                            f"fetched {len(signals)} signals",
+                            len(signals),
+                            now,
+                        )
+                    else:
+                        repository.upsert_source_health(
+                            src["id"],
+                            "unavailable",
+                            "no data returned from provider",
+                            0,
+                            now,
+                        )
+                except Exception as exc:
+                    repository.upsert_source_health(
+                        src["id"],
+                        "unavailable",
+                        f"fetch error: {exc.__class__.__name__}",
+                        0,
+                        now,
+                    )
                     signals = []
+            else:
+                repository.upsert_source_health(
+                    src["id"],
+                    "unavailable",
+                    "provider not configured",
+                    0,
+                    now,
+                )
             # Real sources: keep only fetched real signals (no forced fake fill).
             # Mock sources: only backfill when explicitly enabled by env flag.
             if source_is_mock and settings.allow_mock_backfill and len(signals) < 10:

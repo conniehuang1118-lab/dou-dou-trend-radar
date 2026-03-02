@@ -3,14 +3,14 @@ const PREF_KEY = "trend-radar-source-prefs-v1";
 const MOCK_STORE_KEY = "trend-radar-mock-store-v1";
 
 const DEFAULT_SOURCES = [
-  { id: "kr36", name: "36氪", enabled: true, mode: "hot", weight: 4, is_mock: false },
-  { id: "huxiu", name: "虎嗅", enabled: true, mode: "hot", weight: 3, is_mock: false },
-  { id: "sspai", name: "少数派", enabled: true, mode: "hot", weight: 3, is_mock: false },
-  { id: "zhihu_hot", name: "知乎热榜", enabled: true, mode: "hot", weight: 4, is_mock: false },
-  { id: "weibo_hot", name: "微博热榜", enabled: true, mode: "hot", weight: 5, is_mock: false },
-  { id: "github_trending", name: "GitHub Trending", enabled: true, mode: "hot", weight: 4, is_mock: false },
-  { id: "huggingface_trending", name: "HuggingFace Trending", enabled: true, mode: "hot", weight: 4, is_mock: false },
-  { id: "x_trending", name: "X Trending", enabled: true, mode: "hot", weight: 4, is_mock: false },
+  { id: "kr36", name: "36氪", enabled: true, mode: "hot", weight: 4, is_mock: false, availability_status: "ok", availability_message: "" },
+  { id: "huxiu", name: "虎嗅", enabled: true, mode: "hot", weight: 3, is_mock: false, availability_status: "ok", availability_message: "" },
+  { id: "sspai", name: "少数派", enabled: true, mode: "hot", weight: 3, is_mock: false, availability_status: "ok", availability_message: "" },
+  { id: "zhihu_hot", name: "知乎热榜", enabled: true, mode: "hot", weight: 4, is_mock: false, availability_status: "ok", availability_message: "" },
+  { id: "weibo_hot", name: "微博热榜", enabled: true, mode: "hot", weight: 5, is_mock: false, availability_status: "ok", availability_message: "" },
+  { id: "github_trending", name: "GitHub Trending", enabled: true, mode: "hot", weight: 4, is_mock: false, availability_status: "ok", availability_message: "" },
+  { id: "huggingface_trending", name: "HuggingFace Trending", enabled: true, mode: "hot", weight: 4, is_mock: false, availability_status: "ok", availability_message: "" },
+  { id: "x_trending", name: "X Trending", enabled: true, mode: "hot", weight: 4, is_mock: false, availability_status: "ok", availability_message: "" },
 ];
 
 function loadPrefs() {

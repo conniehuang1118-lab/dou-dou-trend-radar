@@ -90,12 +90,17 @@
       const data = await apiGet(`/platform/${encodeURIComponent(sid)}`);
       document.getElementById('topHint').textContent = `${data.source_name} 频道`;
       document.getElementById('pageTitle').textContent = data.source_name;
-      document.getElementById('modeTag').textContent = 'HOT';
+      const unavailable = (data.availability_status || 'unknown') === 'unavailable';
+      document.getElementById('modeTag').textContent = unavailable ? '暂不可用' : 'HOT';
+      document.getElementById('modeTag').className = unavailable ? 'tag tag-unavailable' : 'tag';
 
       const hotItems = (data.items || []).filter((x) => (x.mode || 'hot') === 'hot').slice(0, 10);
       const content = renderItems(hotItems);
 
-      document.getElementById('platformRoot').innerHTML = content;
+      const tip = unavailable
+        ? `<p class="small" style="margin:0 0 10px;">当前平台抓取异常：${sanitizeText(data.availability_message || 'no data returned', 120)}</p>`
+        : '';
+      document.getElementById('platformRoot').innerHTML = tip + content;
       document.getElementById('status').textContent = `最近加载：${new Date().toLocaleTimeString()}`;
     }
 

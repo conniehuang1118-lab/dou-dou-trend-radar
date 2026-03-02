@@ -298,6 +298,18 @@ button:disabled {
   font-family: "IBM Plex Sans", "Segoe UI", sans-serif;
 }
 
+.tag-unavailable {
+  background: #fdeced;
+  color: #9f1d24;
+}
+
+.availability-inline {
+  margin-left: 6px;
+  font-style: normal;
+  font-size: 11px;
+  color: #9f1d24;
+}
+
 .mode-tag {
   font-weight: 700;
 }

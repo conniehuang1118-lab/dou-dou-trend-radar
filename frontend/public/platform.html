@@ -90,29 +90,10 @@
       const data = await apiGet(`/platform/${encodeURIComponent(sid)}`);
       document.getElementById('topHint').textContent = `${data.source_name} 频道`;
       document.getElementById('pageTitle').textContent = data.source_name;
-      document.getElementById('modeTag').textContent = (data.mode || '').toUpperCase();
+      document.getElementById('modeTag').textContent = 'HOT';
 
-      const hotItems = (data.items || []).filter((x) => x.mode === 'hot').slice(0, 10);
-      const newItems = (data.items || []).filter((x) => x.mode === 'new').slice(0, 10);
-
-      let content = '';
-      if (data.mode === 'both') {
-        content = `
-          <div class="dual-list-grid">
-            <div>
-              <h5 class="sublist-title">Hot Top10</h5>
-              ${renderItems(hotItems)}
-            </div>
-            <div>
-              <h5 class="sublist-title">New Top10</h5>
-              ${renderItems(newItems)}
-            </div>
-          </div>
-        `;
-      } else {
-        const items = (data.items || []).filter((x) => x.mode === data.mode).slice(0, 10);
-        content = renderItems(items);
-      }
+      const hotItems = (data.items || []).filter((x) => (x.mode || 'hot') === 'hot').slice(0, 10);
+      const content = renderItems(hotItems);
 
       document.getElementById('platformRoot').innerHTML = content;
       document.getElementById('status').textContent = `最近加载：${new Date().toLocaleTimeString()}`;

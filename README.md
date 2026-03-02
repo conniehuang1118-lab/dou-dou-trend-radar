@@ -91,7 +91,7 @@ python -m app.scripts.seed_mock
 
 - [x] `/` 首页
   - [x] 平台订阅流为主（按 source 分段）
-  - [x] 今日趋势 Top5（Event 摘要）
+  - [x] 今日趋势 Top10（Event 摘要）
   - [x] 左侧平台筛选 + 红点新内容提示
   - [x] 按平台分段展示（Hot/New/Both）
   - [x] 立即刷新按钮（触发后端 `/api/refresh`）

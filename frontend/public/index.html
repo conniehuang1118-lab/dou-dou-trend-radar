@@ -27,7 +27,7 @@
 
     <section class="hero compact">
       <h2>我的订阅流（My Subscriptions）</h2>
-      <p>左侧切平台筛选，点击编辑图标可管理订阅开关和模式。</p>
+      <p>左侧切平台筛选，点击编辑图标可管理订阅开关。</p>
     </section>
 
     <section class="layout home-main-layout">
@@ -49,12 +49,12 @@
 
       <aside class="panel sidebar-secondary">
         <details open class="fold-box">
-          <summary>今日趋势 Event Top5（摘要）</summary>
+          <summary>今日趋势 Event Top10（摘要）</summary>
           <div id="topEventsRoot" class="top-events-compact"></div>
         </details>
         <div class="kv-list" style="margin-top:12px;">
-          <div class="small">若 provider 抓取失败，会自动回退 mock，保证每个平台至少 10 条可展示。</div>
-          <div class="small">mode=both 时会分为 Hot Top10 + New Top10 两列。</div>
+          <div class="small">仅展示热榜 Top10（不展示最新流）。</div>
+          <div class="small">若某源暂时抓取失败，会继续显示已入库热榜数据。</div>
         </div>
       </aside>
     </section>
@@ -66,7 +66,7 @@
         <h3 class="section-title" style="margin:0;">编辑订阅平台</h3>
         <button id="closeManageBtn" class="icon-btn" title="关闭">×</button>
       </div>
-      <p class="small" style="margin-top:0;">开启/关闭平台，或切换 Hot / New / Both，首页会立即同步。</p>
+      <p class="small" style="margin-top:0;">开启/关闭平台后，首页会立即同步。</p>
       <div id="manageList" class="source-list-rows"></div>
       <div id="manageStatus" class="small" style="margin-top:10px;"></div>
     </div>
@@ -88,7 +88,7 @@
       bilibili_mock: '📺', x_trending: '✖', mock_burst: '⚡'
     };
 
-    const modeLabel = { hot: '热榜', new: '最新', both: '热榜+最新' };
+    const modeLabel = { hot: '热榜' };
     const SEEN_KEY = 'trend-radar-source-seen-v1';
 
     const state = {
@@ -152,7 +152,7 @@
 
     function renderCompactEvents(list) {
       if (!list || !list.length) return '<p class="small">暂无趋势事件</p>';
-      return list.slice(0, 5).map((e, idx) => `
+      return list.slice(0, 10).map((e, idx) => `
         <article class="event-item compact-event-item">
           <h4 class="compact-event-title">
             <a class="rank-row" href="./event.html?id=${encodeURIComponent(e.id)}">
@@ -225,33 +225,15 @@
       }
 
       root.innerHTML = sections.map((s) => {
-        const hotItems = (s.items || []).filter((x) => x.mode === 'hot').slice(0, 10);
-        const newItems = (s.items || []).filter((x) => x.mode === 'new').slice(0, 10);
-        let content = '';
-        if (s.mode === 'both') {
-          content = `
-            <div class="dual-list-grid">
-              <div>
-                <h5 class="sublist-title">Hot Top10</h5>
-                ${renderSectionList(hotItems)}
-              </div>
-              <div>
-                <h5 class="sublist-title">New Top10</h5>
-                ${renderSectionList(newItems)}
-              </div>
-            </div>
-          `;
-        } else {
-          const filtered = (s.items || []).filter((x) => x.mode === s.mode).slice(0, 10);
-          content = renderSectionList(filtered);
-        }
+        const hotItems = (s.items || []).filter((x) => (x.mode || 'hot') === 'hot').slice(0, 10);
+        const content = renderSectionList(hotItems);
 
         return `
           <section class="source-section" data-source-id="${s.source_id}">
             <div class="section-header-row">
               <h4>${s.source_name}</h4>
               <div class="section-actions">
-                <span class="tag mode-tag">${modeLabel[s.mode] || s.mode}</span>
+                <span class="tag mode-tag">${modeLabel.hot}</span>
                 <a class="small" href="/platform/${encodeURIComponent(s.source_id)}">查看更多</a>
                 <button class="ghost-btn" data-source-refresh="${s.source_id}">刷新</button>
               </div>
@@ -279,11 +261,6 @@
               <input type="checkbox" data-manage-id="${s.id}" data-manage-type="enabled" ${s.enabled ? 'checked' : ''} />
               <span>启用</span>
             </label>
-            <select data-manage-id="${s.id}" data-manage-type="mode">
-              <option value="hot" ${s.mode === 'hot' ? 'selected' : ''}>hot</option>
-              <option value="new" ${s.mode === 'new' ? 'selected' : ''}>new</option>
-              <option value="both" ${s.mode === 'both' ? 'selected' : ''}>both</option>
-            </select>
           </div>
         </div>
       `).join('');
@@ -375,10 +352,6 @@
           const enabled = !!el.checked;
           await apiPost(`/sources/${id}/toggle`, { enabled });
           upsertPref(id, { enabled });
-        } else if (type === 'mode') {
-          const mode = el.value;
-          await apiPost(`/sources/${id}/mode`, { mode });
-          upsertPref(id, { mode });
         }
 
         emitHomeDirty();

@@ -27,7 +27,7 @@
 
     <section class="hero compact">
       <h2>My Sources</h2>
-      <p>切换 enabled / mode 后会立即生效，首页订阅流会自动更新。</p>
+      <p>切换 enabled 后会立即生效，首页订阅流会自动更新。</p>
     </section>
 
     <section class="panel" style="margin-top:16px;">
@@ -63,11 +63,6 @@
               <input type="checkbox" data-id="${s.id}" data-type="enabled" ${s.enabled ? 'checked' : ''} />
               <span>启用</span>
             </label>
-            <select data-id="${s.id}" data-type="mode">
-              <option value="hot" ${s.mode === 'hot' ? 'selected' : ''}>hot</option>
-              <option value="new" ${s.mode === 'new' ? 'selected' : ''}>new</option>
-              <option value="both" ${s.mode === 'both' ? 'selected' : ''}>both</option>
-            </select>
           </div>
         </div>
       `;
@@ -111,10 +106,6 @@
           const enabled = !!el.checked;
           await apiPost(`/sources/${id}/toggle`, { enabled });
           p[id].enabled = enabled;
-        } else if (type === 'mode') {
-          const mode = el.value;
-          await apiPost(`/sources/${id}/mode`, { mode });
-          p[id].mode = mode;
         }
         savePrefs(p);
         emitHomeDirty();

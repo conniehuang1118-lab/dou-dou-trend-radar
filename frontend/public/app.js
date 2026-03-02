@@ -3,16 +3,14 @@ const PREF_KEY = "trend-radar-source-prefs-v1";
 const MOCK_STORE_KEY = "trend-radar-mock-store-v1";
 
 const DEFAULT_SOURCES = [
-  { id: "kr36", name: "36氪", enabled: true, mode: "both", weight: 4, is_mock: false },
-  { id: "huxiu", name: "虎嗅", enabled: true, mode: "both", weight: 3, is_mock: false },
-  { id: "sspai", name: "少数派", enabled: true, mode: "both", weight: 3, is_mock: false },
+  { id: "kr36", name: "36氪", enabled: true, mode: "hot", weight: 4, is_mock: false },
+  { id: "huxiu", name: "虎嗅", enabled: true, mode: "hot", weight: 3, is_mock: false },
+  { id: "sspai", name: "少数派", enabled: true, mode: "hot", weight: 3, is_mock: false },
   { id: "zhihu_hot", name: "知乎热榜", enabled: true, mode: "hot", weight: 4, is_mock: false },
   { id: "weibo_hot", name: "微博热榜", enabled: true, mode: "hot", weight: 5, is_mock: false },
-  { id: "github_trending", name: "GitHub Trending", enabled: true, mode: "both", weight: 4, is_mock: false },
+  { id: "github_trending", name: "GitHub Trending", enabled: true, mode: "hot", weight: 4, is_mock: false },
+  { id: "huggingface_trending", name: "HuggingFace Trending", enabled: true, mode: "hot", weight: 4, is_mock: false },
   { id: "x_trending", name: "X Trending", enabled: true, mode: "hot", weight: 4, is_mock: false },
-  { id: "jike_mock", name: "即刻(MOCK)", enabled: true, mode: "new", weight: 3, is_mock: true },
-  { id: "bilibili_mock", name: "B站科技(MOCK)", enabled: true, mode: "new", weight: 3, is_mock: true },
-  { id: "mock_burst", name: "种子爆发信号(MOCK)", enabled: true, mode: "both", weight: 5, is_mock: true }
 ];
 
 function loadPrefs() {
@@ -96,20 +94,20 @@ function loadMockStore() {
     last_updated_time: ts(3 + i),
   }));
 
-  const mkItems = (sid, mode) => Array.from({ length: mode === "both" ? 20 : 10 }, (_, i) => ({
-    id: `${sid}-${mode}-${i + 1}`,
-    title: `${sid} ${mode === "both" ? (i < 10 ? "hot" : "new") : mode} 内容 ${i + 1}`,
+  const mkItems = (sid) => Array.from({ length: 10 }, (_, i) => ({
+    id: `${sid}-hot-${i + 1}`,
+    title: `${sid} hot 内容 ${i + 1}`,
     summary: "平台条目摘要，用于页面可视化演示。",
     url: `https://www.baidu.com/s?wd=${encodeURIComponent(`${sid} 热点`)}`,
     publish_time: ts(i * 4 + 1),
-    mode: mode === "both" ? (i < 10 ? "hot" : "new") : mode,
+    mode: "hot",
   }));
 
   const sections = DEFAULT_SOURCES.filter((s) => s.enabled).map((s) => ({
     source_id: s.id,
     source_name: s.name,
-    mode: s.mode,
-    items: mkItems(s.id, s.mode),
+    mode: "hot",
+    items: mkItems(s.id),
   }));
 
   const store = {
@@ -145,21 +143,21 @@ function applyPrefsToMockSources(sources) {
 
 function rebuildMockHome(store) {
   const ts = (mins) => new Date(Date.now() - mins * 60000).toISOString();
-  const mkItems = (sid, mode) => Array.from({ length: mode === "both" ? 20 : 10 }, (_, i) => ({
-    id: `${sid}-${mode}-${i + 1}`,
-    title: `${sid} ${mode === "both" ? (i < 10 ? "hot" : "new") : mode} 内容 ${i + 1}`,
+  const mkItems = (sid) => Array.from({ length: 10 }, (_, i) => ({
+    id: `${sid}-hot-${i + 1}`,
+    title: `${sid} hot 内容 ${i + 1}`,
     summary: "平台条目摘要，用于页面可视化演示。",
     url: `https://www.baidu.com/s?wd=${encodeURIComponent(`${sid} 热点`)}`,
     publish_time: ts(i * 3 + 1),
-    mode: mode === "both" ? (i < 10 ? "hot" : "new") : mode,
+    mode: "hot",
   }));
 
   const enabledSources = store.sources.filter((s) => s.enabled);
   const sections = enabledSources.map((s) => ({
     source_id: s.id,
     source_name: s.name,
-    mode: s.mode,
-    items: mkItems(s.id, s.mode),
+    mode: "hot",
+    items: mkItems(s.id),
   }));
 
   const weighted = store.home.all_events.map((e) => {
@@ -272,10 +270,10 @@ async function apiPost(path, body = {}) {
     const modeMatch = path.match(/^\/sources\/(.+)\/mode$/);
     if (modeMatch) {
       const id = modeMatch[1];
-      store.sources = store.sources.map((s) => s.id === id ? { ...s, mode: body.mode || "both" } : s);
+      store.sources = store.sources.map((s) => s.id === id ? { ...s, mode: "hot" } : s);
       rebuildMockHome(store);
       persistMockStore(store);
-      return { id, mode: body.mode || "both" };
+      return { id, mode: "hot" };
     }
 
     return { ok: true };
